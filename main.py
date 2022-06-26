@@ -1,86 +1,26 @@
-from aiogram import types
+import asyncio
+
 from aiogram.utils import executor
-from aiogram.types import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import bot, dp
+from config import dp
+from handlers import extra, client, admin, callback, fsm_anketa, notification
 import logging
+from database.bot_db import sql_create
 
 
-@dp.message_handler(commands=['start'])
-async def command_start(message: types.Message):
-    await bot.send_message(message.from_user.id,
-                           f"Hello {message.from_user.full_name}")
+async def on_startup(_):
+    asyncio.create_task(notification.scheduler())
+    sql_create()
 
 
-@dp.message_handler(commands=['quiz'])
-async def quiz_1(message: types.Message):
-    markup = InlineKeyboardMarkup()
-    button_call_1 = InlineKeyboardButton(
-        "NEXT",
-        callback_data='button_call_1',
-    )
-    markup.add(button_call_1)
+client.register_handlers_client(dp)
+callback.register_handlers_callback(dp)
+admin.register_handlers_admin(dp)
+fsm_anketa.register_handler_fsmanketa(dp)
+notification.register_handler_notification(dp)
 
-    question = 'Who is Martin Luther King?'
-    answers = [
-        'The president', 'shooter', 'Preacher', 'Scientist'
-    ]
-    await bot.send_poll(
-        chat_id=message.chat.id,
-        question=question,
-        options=answers,
-        is_anonymous=False,
-        type='quiz',
-        correct_option_id=2,
-        explanation="Сам думай",
-        explanation_parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=markup
-    )
-
-
-@dp.callback_query_handler(lambda call: call.data == "button_call_1")
-async def quiz_2(call: types.CallbackQuery):
-    markup = InlineKeyboardMarkup()
-    button_call_2 = InlineKeyboardButton(
-        "NEXT",
-        callback_data='button_call_2',
-    )
-    markup.add(button_call_2)
-
-    question = 'What the SpaceX?'
-    answers = [
-        "First Variant",
-        "Putin",
-        "Store",
-        "Griffin",
-        "SpaceXsenomorphics",
-        "Space Exploration Technologies Corporation",
-    ]
-    await bot.send_poll(
-        chat_id=call.message.chat.id,
-        question=question,
-        options=answers,
-        is_anonymous=False,
-        type='quiz',
-        correct_option_id=5,
-        explanation="Сам думай",
-    )
-
-
-@dp.message_handler(commands=['mem'])
-async def mem_1(message: types.Message):
-    photo = open("Media/mem.jpg", 'rb')
-    await bot.send_photo(chat_id=message.chat.id, photo=photo)
-
-
-@dp.message_handler()
-async def echo(message: types.Message):
-    await bot.send_message(message.from_user.id, message.text)
-
+extra.register_handlers_extra(dp)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    executor.start_polling(dp, skip_updates=True)
-
-# if __name__ == "__main__":
-#     executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
